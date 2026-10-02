@@ -1,0 +1,536 @@
+{
+  "environment": {
+    "date": "2026-10-02T22:21:23.396Z",
+    "platform": "win32",
+    "arch": "x64",
+    "cpu": "11th Gen Intel(R) Core(TM) i9-11900 @ 2.50GHz",
+    "cpuCount": 16,
+    "node": "v22.14.0",
+    "rounds": 5,
+    "samples": 10000,
+    "transport": "loopback WebSocket, signed joins, 256-byte realtime payload, 32-frame pipeline",
+    "limits": "same raised ingress limits on both implementations"
+  },
+  "results": [
+    {
+      "round": 1,
+      "relay": "node",
+      "startupMs": 176.26729999999998,
+      "idle": {
+        "rss": 65257472,
+        "private": 52113408,
+        "cpu": 0.109375
+      },
+      "pingP50Ms": 0.17480000000000473,
+      "pingP95Ms": 0.251700000000028,
+      "pingP99Ms": 0.32580000000007203,
+      "workloads": [
+        {
+          "fanout": 2,
+          "ingressMessages": 10000,
+          "deliveries": 20000,
+          "durationMs": 669.6192000000001,
+          "deliveriesPerSecond": 29867.721833543597,
+          "latencyP50Ms": 1.8678999999999633,
+          "latencyP95Ms": 3.3635000000001583,
+          "latencyP99Ms": 4.266300000000001
+        },
+        {
+          "fanout": 8,
+          "ingressMessages": 10000,
+          "deliveries": 80000,
+          "durationMs": 1764.3465999999999,
+          "deliveriesPerSecond": 45342.564777238214,
+          "latencyP50Ms": 5.425799999999981,
+          "latencyP95Ms": 7.185399999999845,
+          "latencyP99Ms": 8.30749999999989
+        },
+        {
+          "fanout": 32,
+          "ingressMessages": 10000,
+          "deliveries": 320000,
+          "durationMs": 7069.2028,
+          "deliveriesPerSecond": 45266.7732208786,
+          "latencyP50Ms": 22.221599999998944,
+          "latencyP95Ms": 26.468599999999242,
+          "latencyP99Ms": 28.919700000000375
+        }
+      ],
+      "after": {
+        "rss": 74854400,
+        "private": 62582784,
+        "cpu": 9.640625
+      },
+      "cpuSeconds": 9.34375,
+      "droppedPackets": 0
+    },
+    {
+      "round": 1,
+      "relay": "rust",
+      "startupMs": 31.581900000001042,
+      "idle": {
+        "rss": 7213056,
+        "private": 2277376,
+        "cpu": 0
+      },
+      "pingP50Ms": 0.13440000000082364,
+      "pingP95Ms": 0.1823000000003958,
+      "pingP99Ms": 0.3386000000009517,
+      "workloads": [
+        {
+          "fanout": 2,
+          "ingressMessages": 10000,
+          "deliveries": 20000,
+          "durationMs": 632.3204000000005,
+          "deliveriesPerSecond": 31629.53464730852,
+          "latencyP50Ms": 1.5632000000005064,
+          "latencyP95Ms": 2.7973000000001775,
+          "latencyP99Ms": 3.7556000000004133
+        },
+        {
+          "fanout": 8,
+          "ingressMessages": 10000,
+          "deliveries": 80000,
+          "durationMs": 1139.0618999999988,
+          "deliveriesPerSecond": 70233.23315440546,
+          "latencyP50Ms": 1.9622999999992317,
+          "latencyP95Ms": 4.082899999999427,
+          "latencyP99Ms": 5.182299999998577
+        },
+        {
+          "fanout": 32,
+          "ingressMessages": 10000,
+          "deliveries": 320000,
+          "durationMs": 4315.616500000002,
+          "deliveriesPerSecond": 74149.31331363662,
+          "latencyP50Ms": 6.8487999999997555,
+          "latencyP95Ms": 14.700099999998201,
+          "latencyP99Ms": 19.53450000000157
+        }
+      ],
+      "after": {
+        "rss": 10051584,
+        "private": 4919296,
+        "cpu": 11.71875
+      },
+      "cpuSeconds": 11.515625,
+      "droppedPackets": 0
+    },
+    {
+      "round": 2,
+      "relay": "rust",
+      "startupMs": 43.66059999999925,
+      "idle": {
+        "rss": 7172096,
+        "private": 2236416,
+        "cpu": 0
+      },
+      "pingP50Ms": 0.13330000000132713,
+      "pingP95Ms": 0.21080000000074506,
+      "pingP99Ms": 0.468300000000454,
+      "workloads": [
+        {
+          "fanout": 2,
+          "ingressMessages": 10000,
+          "deliveries": 20000,
+          "durationMs": 833.3133999999991,
+          "deliveriesPerSecond": 24000.57409373235,
+          "latencyP50Ms": 1.741600000001199,
+          "latencyP95Ms": 4.533199999998033,
+          "latencyP99Ms": 7.918299999997544
+        },
+        {
+          "fanout": 8,
+          "ingressMessages": 10000,
+          "deliveries": 80000,
+          "durationMs": 1691.9985000000015,
+          "deliveriesPerSecond": 47281.36579317294,
+          "latencyP50Ms": 2.758399999998801,
+          "latencyP95Ms": 6.770100000001548,
+          "latencyP99Ms": 9.180599999999686
+        },
+        {
+          "fanout": 32,
+          "ingressMessages": 10000,
+          "deliveries": 320000,
+          "durationMs": 5163.071399999997,
+          "deliveriesPerSecond": 61978.61218808637,
+          "latencyP50Ms": 8.260000000002037,
+          "latencyP95Ms": 18.054400000000896,
+          "latencyP99Ms": 27.207100000003265
+        }
+      ],
+      "after": {
+        "rss": 9998336,
+        "private": 4337664,
+        "cpu": 17.5625
+      },
+      "cpuSeconds": 17.34375,
+      "droppedPackets": 0
+    },
+    {
+      "round": 2,
+      "relay": "node",
+      "startupMs": 233.44720000000234,
+      "idle": {
+        "rss": 65044480,
+        "private": 51908608,
+        "cpu": 0.171875
+      },
+      "pingP50Ms": 0.14879999999902793,
+      "pingP95Ms": 0.2175999999999476,
+      "pingP99Ms": 0.41849999999976717,
+      "workloads": [
+        {
+          "fanout": 2,
+          "ingressMessages": 10000,
+          "deliveries": 20000,
+          "durationMs": 934.9015999999974,
+          "deliveriesPerSecond": 21392.625705207964,
+          "latencyP50Ms": 2.4562999999980093,
+          "latencyP95Ms": 5.255099999994854,
+          "latencyP99Ms": 7.535700000000361
+        },
+        {
+          "fanout": 8,
+          "ingressMessages": 10000,
+          "deliveries": 80000,
+          "durationMs": 2481.526300000005,
+          "deliveriesPerSecond": 32238.223709335598,
+          "latencyP50Ms": 6.559399999998277,
+          "latencyP95Ms": 15.365999999994528,
+          "latencyP99Ms": 26.448000000003958
+        },
+        {
+          "fanout": 32,
+          "ingressMessages": 10000,
+          "deliveries": 320000,
+          "durationMs": 7490.763700000003,
+          "deliveriesPerSecond": 42719.275739535056,
+          "latencyP50Ms": 22.822500000002037,
+          "latencyP95Ms": 30.122599999995145,
+          "latencyP99Ms": 41.902399999999034
+        }
+      ],
+      "after": {
+        "rss": 74809344,
+        "private": 62525440,
+        "cpu": 10.09375
+      },
+      "cpuSeconds": 9.671875,
+      "droppedPackets": 0
+    },
+    {
+      "round": 3,
+      "relay": "node",
+      "startupMs": 130.80140000000392,
+      "idle": {
+        "rss": 65146880,
+        "private": 52088832,
+        "cpu": 0.109375
+      },
+      "pingP50Ms": 0.1434000000008382,
+      "pingP95Ms": 0.20000000000436557,
+      "pingP99Ms": 0.28989999999612337,
+      "workloads": [
+        {
+          "fanout": 2,
+          "ingressMessages": 10000,
+          "deliveries": 20000,
+          "durationMs": 711.4962999999989,
+          "deliveriesPerSecond": 28109.77372615997,
+          "latencyP50Ms": 1.989000000001397,
+          "latencyP95Ms": 3.738100000002305,
+          "latencyP99Ms": 4.670300000005227
+        },
+        {
+          "fanout": 8,
+          "ingressMessages": 10000,
+          "deliveries": 80000,
+          "durationMs": 2053.1710999999996,
+          "deliveriesPerSecond": 38964.11750584255,
+          "latencyP50Ms": 5.7387000000017,
+          "latencyP95Ms": 10.269699999997101,
+          "latencyP99Ms": 15.032100000003993
+        },
+        {
+          "fanout": 32,
+          "ingressMessages": 10000,
+          "deliveries": 320000,
+          "durationMs": 8103.823199999999,
+          "deliveriesPerSecond": 39487.53472311686,
+          "latencyP50Ms": 23.98639999999432,
+          "latencyP95Ms": 36.738400000002,
+          "latencyP99Ms": 44.90869999999995
+        }
+      ],
+      "after": {
+        "rss": 74485760,
+        "private": 61747200,
+        "cpu": 9.734375
+      },
+      "cpuSeconds": 9.390625,
+      "droppedPackets": 0
+    },
+    {
+      "round": 3,
+      "relay": "rust",
+      "startupMs": 32.40720000000147,
+      "idle": {
+        "rss": 7163904,
+        "private": 2228224,
+        "cpu": 0.03125
+      },
+      "pingP50Ms": 0.11310000000230502,
+      "pingP95Ms": 0.14130000000295695,
+      "pingP99Ms": 0.23649999999906868,
+      "workloads": [
+        {
+          "fanout": 2,
+          "ingressMessages": 10000,
+          "deliveries": 20000,
+          "durationMs": 622.6883000000016,
+          "deliveriesPerSecond": 32118.798442173953,
+          "latencyP50Ms": 1.4746000000013737,
+          "latencyP95Ms": 2.965700000000652,
+          "latencyP99Ms": 4.1252000000022235
+        },
+        {
+          "fanout": 8,
+          "ingressMessages": 10000,
+          "deliveries": 80000,
+          "durationMs": 1225.745799999997,
+          "deliveriesPerSecond": 65266.38720687454,
+          "latencyP50Ms": 2.106599999999162,
+          "latencyP95Ms": 4.425199999997858,
+          "latencyP99Ms": 5.599599999994098
+        },
+        {
+          "fanout": 32,
+          "ingressMessages": 10000,
+          "deliveries": 320000,
+          "durationMs": 3724.7804000000033,
+          "deliveriesPerSecond": 85911.10498755838,
+          "latencyP50Ms": 6.275000000001455,
+          "latencyP95Ms": 11.81720000000496,
+          "latencyP99Ms": 13.923200000004726
+        }
+      ],
+      "after": {
+        "rss": 10092544,
+        "private": 3883008,
+        "cpu": 12.8125
+      },
+      "cpuSeconds": 12.640625,
+      "droppedPackets": 0
+    },
+    {
+      "round": 4,
+      "relay": "rust",
+      "startupMs": 35.28560000000289,
+      "idle": {
+        "rss": 7163904,
+        "private": 2224128,
+        "cpu": 0.015625
+      },
+      "pingP50Ms": 0.14109999999345746,
+      "pingP95Ms": 0.18679999999585561,
+      "pingP99Ms": 0.41749999999592546,
+      "workloads": [
+        {
+          "fanout": 2,
+          "ingressMessages": 10000,
+          "deliveries": 20000,
+          "durationMs": 669.2776000000013,
+          "deliveriesPerSecond": 29882.966350584516,
+          "latencyP50Ms": 1.558099999994738,
+          "latencyP95Ms": 3.440499999996973,
+          "latencyP99Ms": 5.501799999998184
+        },
+        {
+          "fanout": 8,
+          "ingressMessages": 10000,
+          "deliveries": 80000,
+          "durationMs": 1671.169000000009,
+          "deliveriesPerSecond": 47870.68213926872,
+          "latencyP50Ms": 2.7290000000066357,
+          "latencyP95Ms": 6.486399999994319,
+          "latencyP99Ms": 8.431899999995949
+        },
+        {
+          "fanout": 32,
+          "ingressMessages": 10000,
+          "deliveries": 320000,
+          "durationMs": 4836.323399999994,
+          "deliveriesPerSecond": 66165.96400480588,
+          "latencyP50Ms": 7.620100000000093,
+          "latencyP95Ms": 16.88390000000072,
+          "latencyP99Ms": 25.783599999995204
+        }
+      ],
+      "after": {
+        "rss": 9973760,
+        "private": 5230592,
+        "cpu": 13.40625
+      },
+      "cpuSeconds": 13.25,
+      "droppedPackets": 0
+    },
+    {
+      "round": 4,
+      "relay": "node",
+      "startupMs": 137.8706999999995,
+      "idle": {
+        "rss": 65232896,
+        "private": 52080640,
+        "cpu": 0.125
+      },
+      "pingP50Ms": 0.1379999999917345,
+      "pingP95Ms": 0.18720000000030268,
+      "pingP99Ms": 0.2551999999996042,
+      "workloads": [
+        {
+          "fanout": 2,
+          "ingressMessages": 10000,
+          "deliveries": 20000,
+          "durationMs": 778.6533999999956,
+          "deliveriesPerSecond": 25685.36912572412,
+          "latencyP50Ms": 2.269000000000233,
+          "latencyP95Ms": 3.9359000000113156,
+          "latencyP99Ms": 4.866699999998673
+        },
+        {
+          "fanout": 8,
+          "ingressMessages": 10000,
+          "deliveries": 80000,
+          "durationMs": 1911.8032000000094,
+          "deliveriesPerSecond": 41845.311274716776,
+          "latencyP50Ms": 5.898000000001048,
+          "latencyP95Ms": 7.7951000000030035,
+          "latencyP99Ms": 8.907999999995809
+        },
+        {
+          "fanout": 32,
+          "ingressMessages": 10000,
+          "deliveries": 320000,
+          "durationMs": 8552.767800000001,
+          "deliveriesPerSecond": 37414.78869565475,
+          "latencyP50Ms": 26.324600000007194,
+          "latencyP95Ms": 34.93769999999495,
+          "latencyP99Ms": 43.2045999999973
+        }
+      ],
+      "after": {
+        "rss": 74809344,
+        "private": 62279680,
+        "cpu": 11.046875
+      },
+      "cpuSeconds": 10.640625,
+      "droppedPackets": 0
+    },
+    {
+      "round": 5,
+      "relay": "node",
+      "startupMs": 150.60740000000806,
+      "idle": {
+        "rss": 65212416,
+        "private": 52109312,
+        "cpu": 0.140625
+      },
+      "pingP50Ms": 0.14599999999336433,
+      "pingP95Ms": 0.18459999999322463,
+      "pingP99Ms": 0.26929999999993015,
+      "workloads": [
+        {
+          "fanout": 2,
+          "ingressMessages": 10000,
+          "deliveries": 20000,
+          "durationMs": 832.5585999999894,
+          "deliveriesPerSecond": 24022.333082620557,
+          "latencyP50Ms": 2.2160000000003492,
+          "latencyP95Ms": 4.4857000000047265,
+          "latencyP99Ms": 5.825600000011036
+        },
+        {
+          "fanout": 8,
+          "ingressMessages": 10000,
+          "deliveries": 80000,
+          "durationMs": 2590.7927999999956,
+          "deliveriesPerSecond": 30878.578943094228,
+          "latencyP50Ms": 7.726699999999255,
+          "latencyP95Ms": 12.403899999990244,
+          "latencyP99Ms": 14.971300000004703
+        },
+        {
+          "fanout": 32,
+          "ingressMessages": 10000,
+          "deliveries": 320000,
+          "durationMs": 7368.038100000005,
+          "deliveriesPerSecond": 43430.82862180094,
+          "latencyP50Ms": 22.60800000000745,
+          "latencyP95Ms": 28.758600000001024,
+          "latencyP99Ms": 33.301800000001094
+        }
+      ],
+      "after": {
+        "rss": 74833920,
+        "private": 61931520,
+        "cpu": 10.203125
+      },
+      "cpuSeconds": 9.859375,
+      "droppedPackets": 0
+    },
+    {
+      "round": 5,
+      "relay": "rust",
+      "startupMs": 31.39289999999164,
+      "idle": {
+        "rss": 7172096,
+        "private": 2232320,
+        "cpu": 0
+      },
+      "pingP50Ms": 0.11109999999462161,
+      "pingP95Ms": 0.14160000000265427,
+      "pingP99Ms": 0.17060000001220033,
+      "workloads": [
+        {
+          "fanout": 2,
+          "ingressMessages": 10000,
+          "deliveries": 20000,
+          "durationMs": 601.4094000000041,
+          "deliveriesPerSecond": 33255.21682900178,
+          "latencyP50Ms": 1.4821000000083586,
+          "latencyP95Ms": 2.602499999993597,
+          "latencyP99Ms": 3.6824000000051456
+        },
+        {
+          "fanout": 8,
+          "ingressMessages": 10000,
+          "deliveries": 80000,
+          "durationMs": 1265.0559000000067,
+          "deliveriesPerSecond": 63238.31223584632,
+          "latencyP50Ms": 2.134300000005169,
+          "latencyP95Ms": 4.609299999996438,
+          "latencyP99Ms": 5.814399999988382
+        },
+        {
+          "fanout": 32,
+          "ingressMessages": 10000,
+          "deliveries": 320000,
+          "durationMs": 5200.069899999988,
+          "deliveriesPerSecond": 61537.63433064636,
+          "latencyP50Ms": 7.761599999997998,
+          "latencyP95Ms": 20.963999999992666,
+          "latencyP99Ms": 35.77139999999781
+        }
+      ],
+      "after": {
+        "rss": 10072064,
+        "private": 4395008,
+        "cpu": 11.96875
+      },
+      "cpuSeconds": 11.90625,
+      "droppedPackets": 0
+    }
+  ]
+}

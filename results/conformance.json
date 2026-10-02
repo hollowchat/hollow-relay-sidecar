@@ -1,0 +1,90 @@
+{
+  "date": "2026-10-02T22:53:59.203Z",
+  "results": [
+    {
+      "relay": "node",
+      "name": "signed joins, tampering, expiration and replay",
+      "passed": true
+    },
+    {
+      "relay": "node",
+      "name": "identity ownership and same-identity reconnect",
+      "passed": true
+    },
+    {
+      "relay": "node",
+      "name": "direct, broadcast, room listing and isolation",
+      "passed": true
+    },
+    {
+      "relay": "node",
+      "name": "realtime lanes, identity binding, recipients and position updates",
+      "passed": true
+    },
+    {
+      "relay": "node",
+      "name": "rejects wrong scope, stale packets and lane overflow",
+      "passed": true
+    },
+    {
+      "relay": "node",
+      "name": "leave and connection cleanup",
+      "passed": true
+    },
+    {
+      "relay": "node",
+      "name": "room capacity and rate limits",
+      "passed": true
+    },
+    {
+      "relay": "rust",
+      "name": "signed joins, tampering, expiration and replay",
+      "passed": true
+    },
+    {
+      "relay": "rust",
+      "name": "identity ownership and same-identity reconnect",
+      "passed": true
+    },
+    {
+      "relay": "rust",
+      "name": "direct, broadcast, room listing and isolation",
+      "passed": true
+    },
+    {
+      "relay": "rust",
+      "name": "realtime lanes, identity binding, recipients and position updates",
+      "passed": true
+    },
+    {
+      "relay": "rust",
+      "name": "rejects wrong scope, stale packets and lane overflow",
+      "passed": true
+    },
+    {
+      "relay": "rust",
+      "name": "leave and connection cleanup",
+      "passed": true
+    },
+    {
+      "relay": "rust",
+      "name": "control authentication and shutdown",
+      "passed": true
+    },
+    {
+      "relay": "rust",
+      "name": "room capacity and rate limits",
+      "passed": true
+    },
+    {
+      "relay": "rust",
+      "name": "parent pipe lifetime",
+      "passed": true
+    },
+    {
+      "relay": "rust",
+      "name": "authenticated stop with parent pipe open",
+      "passed": true
+    }
+  ]
+}

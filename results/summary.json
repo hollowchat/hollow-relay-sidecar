@@ -1,0 +1,60 @@
+{
+  "results": [
+    {
+      "relay": "node",
+      "startupMs": 175.9300000000003,
+      "idleMiB": 62.15625,
+      "loadedMiB": 71.29296875,
+      "cpuSeconds": 11.25,
+      "pingP95Ms": 0.20880000000761356,
+      "workloads": [
+        {
+          "fanout": 2,
+          "deliveriesPerSecond": 21431.876530101967,
+          "latencyP95Ms": 4.886900000004971
+        },
+        {
+          "fanout": 8,
+          "deliveriesPerSecond": 32005.540799223098,
+          "latencyP95Ms": 12.519100000004983
+        },
+        {
+          "fanout": 32,
+          "deliveriesPerSecond": 32638.84267886075,
+          "latencyP95Ms": 47.21799999999348
+        }
+      ]
+    },
+    {
+      "relay": "rust",
+      "startupMs": 44.745499999997264,
+      "idleMiB": 6.3359375,
+      "loadedMiB": 8.49609375,
+      "cpuSeconds": 8.265625,
+      "pingP95Ms": 0.15989999999874271,
+      "workloads": [
+        {
+          "fanout": 2,
+          "deliveriesPerSecond": 31194.84848272141,
+          "latencyP95Ms": 3.158500000005006
+        },
+        {
+          "fanout": 8,
+          "deliveriesPerSecond": 40072.603543099365,
+          "latencyP95Ms": 9.16570000000138
+        },
+        {
+          "fanout": 32,
+          "deliveriesPerSecond": 44596.67146610471,
+          "latencyP95Ms": 29.759599999990314
+        }
+      ]
+    }
+  ],
+  "sizes": {
+    "nativeBytes": 6302208,
+    "nativeGzipBytes": 3354097,
+    "nodeRelayBundleBytes": 125963,
+    "nodeRuntimeBytes": 83344536
+  }
+}

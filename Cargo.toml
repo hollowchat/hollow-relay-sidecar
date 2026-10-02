@@ -1,0 +1,28 @@
+[package]
+name = "hollow-relay-sidecar"
+version = "0.1.0"
+edition = "2021"
+description = "Native Hollow signed-room relay sidecar"
+publish = false
+
+[dependencies]
+axum = { version = "=0.8.9", features = ["ws"] }
+tokio = { version = "=1.53.1", features = ["macros", "rt-multi-thread", "net", "sync", "time", "signal", "process", "io-util", "io-std"] }
+tokio-tungstenite = { version = "=0.29.0", features = ["rustls-tls-webpki-roots"] }
+futures-util = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+indexmap = "=2.14.0"
+secp256k1 = "0.31"
+sha2 = "0.10"
+hex = "0.4"
+uuid = { version = "=1.23.0", features = ["v4"] }
+reqwest = { version = "=0.12.27", default-features = false, features = ["rustls-tls", "json"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Threading"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

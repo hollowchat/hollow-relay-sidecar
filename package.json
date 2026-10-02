@@ -1,0 +1,12 @@
+{
+  "name": "hollow-relay-sidecar-verification",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node scripts/conformance.mjs",
+    "benchmark": "node scripts/benchmark.mjs",
+    "test:job": "node scripts/job-lifetime.mjs",
+    "test:tunnel": "node scripts/tunnel-smoke.mjs",
+    "report": "node scripts/report.mjs"
+  }
+}

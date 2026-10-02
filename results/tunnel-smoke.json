@@ -1,0 +1,10 @@
+{
+  "date": "2026-10-02T22:42:15.532Z",
+  "passed": true,
+  "publicSignedJoins": true,
+  "publicBroadcast": true,
+  "upstreamRegistration": true,
+  "catalogVerified": true,
+  "provider": "cloudflare",
+  "tunnelImplementation": "native-helper"
+}
