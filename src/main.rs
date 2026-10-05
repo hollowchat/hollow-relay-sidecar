@@ -36,6 +36,8 @@ struct App {
     started: u64,
     public: RwLock<Value>,
     registration: RwLock<Value>,
+    enabled: AtomicBool,
+    hosting_changed: Notify,
     refresh: Notify,
     shutdown: Notify,
 }
@@ -64,6 +66,7 @@ impl App {
         value["startedAt"] = json!(self.started);
         value["lastSeenAt"] = json!(now());
         value["healthy"] = json!(true);
+        value["enabled"] = json!(self.enabled.load(Ordering::SeqCst));
         let public = self.public.read().await.clone();
         let visible = if public["running"] == true {
             public.clone()
@@ -100,6 +103,7 @@ async fn health(State(app): State<Arc<App>>) -> Json<Value> {
     value["localHttpUrl"] = json!(app.http);
     value["localWsUrl"] = json!(app.ws);
     value["wsPath"] = json!("/relay");
+    value["hosting"] = json!({"tunnel":app.public.read().await.clone(),"registered":app.registration.read().await["registered"] == true});
     Json(value)
 }
 async fn service(State(app): State<Arc<App>>, headers: HeaderMap) -> Response {
@@ -116,8 +120,37 @@ async fn refresh(State(app): State<Arc<App>>, headers: HeaderMap) -> Response {
     if !app.authorized(&headers) {
         return StatusCode::UNAUTHORIZED.into_response();
     }
+    app.engine.lock().unwrap().stop();
+    *app.public.write().await = json!({"running":false,"phase":"resetting"});
+    *app.registration.write().await = json!({"registered":false});
+    app.hosting_changed.notify_one();
     app.refresh.notify_one();
     (StatusCode::ACCEPTED, Json(app.status().await)).into_response()
+}
+async fn set_enabled(
+    State(app): State<Arc<App>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !app.authorized(&headers) {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    let Some(enabled) = body["enabled"].as_bool() else {
+        return StatusCode::BAD_REQUEST.into_response();
+    };
+    let changed = {
+        let engine = app.engine.lock().unwrap();
+        let changed = app.enabled.swap(enabled, Ordering::SeqCst) != enabled;
+        if !enabled {
+            engine.stop();
+        }
+        changed
+    };
+    if changed {
+        *app.registration.write().await = json!({"registered":false});
+        app.hosting_changed.notify_one();
+    }
+    Json(app.status().await).into_response()
 }
 async fn shutdown(State(app): State<Arc<App>>, headers: HeaderMap) -> Response {
     if !app.authorized(&headers) {
@@ -145,7 +178,27 @@ async fn connection(app: Arc<App>, socket: WebSocket) {
         pending: AtomicUsize::new(0),
         closing: AtomicBool::new(false),
     });
-    let accepted = app.engine.lock().unwrap().connect(id.clone(), out.clone());
+    let accepted = {
+        let mut engine = app.engine.lock().unwrap();
+        app.enabled
+            .load(Ordering::SeqCst)
+            .then(|| engine.connect(id.clone(), out.clone()))
+    };
+    let Some(accepted) = accepted else {
+        let mut socket = socket;
+        let _ = socket
+            .send(Message::Text(
+                json!(["HOLLOW_RELAY_PAUSED", {}]).to_string().into(),
+            ))
+            .await;
+        let _ = socket
+            .send(Message::Close(Some(CloseFrame {
+                code: 1013,
+                reason: "Relay paused".into(),
+            })))
+            .await;
+        return;
+    };
     let (mut sink, mut stream) = socket.split();
     let writer_out = out.clone();
     let mut writer = tokio::spawn(async move {
@@ -179,8 +232,8 @@ async fn connection(app: Arc<App>, socket: WebSocket) {
             tokio::select! {
                 _=&mut writer=>break,
                 message=stream.next()=>match message {
-                    Some(Ok(Message::Text(text)))=>app.engine.lock().unwrap().receive(&id,text.as_bytes()),
-                    Some(Ok(Message::Binary(bytes)))=>app.engine.lock().unwrap().receive(&id,&bytes),
+                    Some(Ok(Message::Text(text)))=>{let mut engine=app.engine.lock().unwrap();if app.enabled.load(Ordering::SeqCst){engine.receive(&id,text.as_bytes());}},
+                    Some(Ok(Message::Binary(bytes)))=>{let mut engine=app.engine.lock().unwrap();if app.enabled.load(Ordering::SeqCst){engine.receive(&id,&bytes);}},
                     Some(Ok(Message::Close(_)))|None|Some(Err(_))=>break,
                     _=>{},
                 }
@@ -191,13 +244,7 @@ async fn connection(app: Arc<App>, socket: WebSocket) {
     writer.abort();
 }
 
-async fn tunnel(
-    app: Arc<App>,
-    helper: PathBuf,
-    upstream: Option<String>,
-    cloudflared: Option<PathBuf>,
-    native: bool,
-) {
+async fn tunnel(app: Arc<App>, helper: PathBuf, cloudflared: Option<PathBuf>, native: bool) {
     let mut native = native;
     loop {
         let binary = if native {
@@ -254,66 +301,103 @@ async fn tunnel(
             Box::new(child.stderr.take().unwrap())
         };
         let mut lines = BufReader::new(pipe).lines();
-        let ready=tokio::time::timeout(Duration::from_secs(180),async {
-            while let Ok(Some(line))=lines.next_line().await {
-                let value = if native {let Ok(value)=serde_json::from_str::<Value>(&line) else {continue};value} else {
-                    let Some(start) = line.find("https://") else {continue};
-                    let url: String = line[start..].chars().take_while(|c|c.is_ascii_alphanumeric() || matches!(c,'-'|'.'|':'|'/')).collect();
-                    if !url.ends_with(".trycloudflare.com") {continue}
+        let ready_future = tokio::time::timeout(Duration::from_secs(180), async {
+            while let Ok(Some(line)) = lines.next_line().await {
+                let value = if native {
+                    let Ok(value) = serde_json::from_str::<Value>(&line) else {
+                        continue;
+                    };
+                    value
+                } else {
+                    let Some(start) = line.find("https://") else {
+                        continue;
+                    };
+                    let url: String = line[start..]
+                        .chars()
+                        .take_while(|c| {
+                            c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | ':' | '/')
+                        })
+                        .collect();
+                    if !url.ends_with(".trycloudflare.com") {
+                        continue;
+                    }
                     json!({"type":"ready","publicUrl":url})
                 };
-                if value["type"]=="error" {return Err(value["message"].to_string())}
-                if value["type"]=="ready" {
-                    let url=value["publicUrl"].as_str().ok_or("Missing tunnel URL")?.trim_end_matches('/').to_string();
-                    if !url.starts_with("https://") {return Err("Tunnel must use HTTPS".into())}
-                    let ws=format!("{}/relay",url.replacen("https:","wss:",1));
-                    *app.public.write().await = json!({"running":false,"starting":true,"candidateUrl":url});
-                    // A helper's ready line is not proof that the public websocket works.
-                    probe_public(&ws).await?;
-                    return Ok(json!({"running":true,"healthy":true,"provider":"cloudflare","publicUrl":url,"publicWsUrl":ws,"startedAt":now()}));
+                if value["type"] == "progress" {
+                    *app.public.write().await =
+                        json!({"running":false,"phase":value["phase"],"since":now()});
+                    continue;
                 }
-            }Err("Tunnel exited before ready".into())
-        }).await;
-        let mut registration = None;
+                if value["type"] == "error" {
+                    return Err(value["message"].to_string());
+                }
+                if value["type"] == "ready" {
+                    let url = value["publicUrl"]
+                        .as_str()
+                        .ok_or("Missing tunnel URL")?
+                        .trim_end_matches('/')
+                        .to_string();
+                    if !url.starts_with("https://") {
+                        return Err("Tunnel must use HTTPS".into());
+                    }
+                    let ws = format!("{}/relay", url.replacen("https:", "wss:", 1));
+                    *app.public.write().await = json!({"running":false,"starting":true,"phase":"checking-public","candidateUrl":url,"since":now()});
+                    // A helper's ready line is not proof that the public websocket works.
+                    probe_public(&app, &ws).await?;
+                    return Ok(
+                        json!({"running":true,"healthy":true,"provider":"cloudflare","publicUrl":url,"publicWsUrl":ws,"startedAt":now()}),
+                    );
+                }
+            }
+            Err("Tunnel exited before ready".into())
+        });
+        let mut resetting = false;
+        let ready = tokio::select! {
+            value=ready_future=>value,
+            _=app.refresh.notified()=>{
+                resetting=true;
+                Ok(Err("Tunnel reset requested".to_string()))
+            }
+        };
         match ready {
             Ok(Ok(value)) => {
                 *app.public.write().await = value;
-                if let Some(upstream) = &upstream {
-                    registration = Some(tokio::spawn(register(app.clone(), upstream.clone())));
-                }
+                app.hosting_changed.notify_one();
             }
             error => {
                 eprintln!("[hollow-native-relay] tunnel not ready: {error:?}");
                 *app.public.write().await = json!({"running":false,"error":format!("{error:?}")});
                 let _ = child.kill().await;
-                if native && cloudflared.is_some() {
+                if !resetting && native && cloudflared.is_some() {
                     native = false;
                 }
             }
         }
         let drain =
             tokio::spawn(async move { while matches!(lines.next_line().await, Ok(Some(_))) {} });
-        tokio::select! {_=child.wait()=>{},_=app.refresh.notified()=>{let _=child.kill().await;}}
-        drain.abort();
-        if let Some(task) = registration {
-            task.abort();
+        if !resetting {
+            tokio::select! {_=child.wait()=>{},_=app.refresh.notified()=>{resetting=true;let _=child.kill().await;}}
+        } else {
+            let _ = child.wait().await;
         }
+        drain.abort();
         {
             let mut status = app.public.write().await;
             status["running"] = json!(false);
             status["healthy"] = json!(false);
         }
         *app.registration.write().await = json!({"registered":false});
-        tokio::time::sleep(Duration::from_secs(5)).await;
+        app.hosting_changed.notify_one();
+        if !resetting {
+            tokio::select! {_=tokio::time::sleep(Duration::from_secs(5))=>{},_=app.refresh.notified()=>{}}
+        }
     }
 }
-async fn probe_public(ws: &str) -> Result<(), String> {
+async fn probe_public(app: &App, ws: &str) -> Result<(), String> {
     let deadline = tokio::time::Instant::now() + Duration::from_secs(120);
     loop {
         let result = tokio::time::timeout(Duration::from_secs(10), async {
-            let (mut probe, _) = tokio_tungstenite::connect_async(ws)
-                .await
-                .map_err(|e| e.to_string())?;
+            let mut probe = connect_public(ws).await?;
             let hello = probe
                 .next()
                 .await
@@ -322,12 +406,15 @@ async fn probe_public(ws: &str) -> Result<(), String> {
             let frame: Value = serde_json::from_str(hello.to_text().map_err(|e| e.to_string())?)
                 .map_err(|e| e.to_string())?;
             let _ = probe.close(None).await;
-            if frame[0] != "WELCOME" {
+            if frame[0] != "WELCOME" && frame[0] != "HOLLOW_RELAY_PAUSED" {
                 return Err("Public relay did not welcome probe".to_string());
             }
             Ok(())
         })
         .await;
+        if !matches!(&result, Ok(Ok(()))) {
+            app.public.write().await["lastProbeError"] = json!(format!("{result:?}"));
+        }
         if matches!(result, Ok(Ok(()))) {
             return Ok(());
         }
@@ -337,39 +424,183 @@ async fn probe_public(ws: &str) -> Result<(), String> {
         tokio::time::sleep(Duration::from_secs(2)).await;
     }
 }
+async fn connect_public(
+    ws: &str,
+) -> Result<
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+    String,
+> {
+    let url = reqwest::Url::parse(ws).map_err(|e| e.to_string())?;
+    let host = url.host_str().ok_or("Missing tunnel hostname")?;
+    if url.scheme() != "wss" || !host.ends_with(".trycloudflare.com") {
+        return tokio_tungstenite::connect_async(ws)
+            .await
+            .map(|(socket, _)| socket)
+            .map_err(|e| e.to_string());
+    }
+    // Query authoritative-provider DNS first for fresh quick-tunnel names.
+    // Looking them up before publication can poison the OS negative cache.
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(3))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let answer: Value = client
+        .get("https://cloudflare-dns.com/dns-query")
+        .query(&[("name", host), ("type", "A")])
+        .header("accept", "application/dns-json")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?
+        .error_for_status()
+        .map_err(|e| e.to_string())?
+        .json()
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut last_error = "Tunnel DNS is not published yet".to_string();
+    for address in public_addresses(&answer) {
+        let tcp = match tokio::time::timeout(
+            Duration::from_secs(3),
+            tokio::net::TcpStream::connect((address, url.port_or_known_default().unwrap_or(443))),
+        )
+        .await
+        {
+            Ok(Ok(tcp)) => tcp,
+            error => {
+                last_error = format!("{error:?}");
+                continue;
+            }
+        };
+        // Keep the original URL: TLS verifies the hostname and sends its SNI,
+        // and the websocket HTTP upgrade keeps the original Host header.
+        match tokio_tungstenite::client_async_tls_with_config(ws, tcp, None, None).await {
+            Ok((socket, _)) => return Ok(socket),
+            Err(error) => last_error = error.to_string(),
+        }
+    }
+    Err(last_error)
+}
+fn public_addresses(answer: &Value) -> Vec<std::net::Ipv4Addr> {
+    if answer["Status"] != 0 {
+        return Vec::new();
+    }
+    answer["Answer"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|entry| entry["type"] == 1)
+        .filter_map(|entry| entry["data"].as_str()?.parse::<std::net::Ipv4Addr>().ok())
+        .filter(|ip| {
+            !ip.is_private()
+                && !ip.is_loopback()
+                && !ip.is_link_local()
+                && !ip.is_unspecified()
+                && !ip.is_multicast()
+        })
+        .take(4)
+        .collect()
+}
+#[cfg(test)]
+mod tunnel_dns_tests {
+    use super::*;
+    #[test]
+    fn accepts_only_successful_public_a_answers() {
+        let data = json!({"Status":0,"Answer":[{"type":1,"data":"104.16.230.132"},{"type":5,"data":"alias.example"},{"type":1,"data":"127.0.0.1"},{"type":1,"data":"10.0.0.1"},{"type":1,"data":"invalid"}]});
+        assert_eq!(
+            public_addresses(&data),
+            vec!["104.16.230.132".parse::<std::net::Ipv4Addr>().unwrap()]
+        );
+        assert!(public_addresses(
+            &json!({"Status":3,"Answer":[{"type":1,"data":"104.16.230.132"}]})
+        )
+        .is_empty());
+    }
+}
 async fn register(app: Arc<App>, upstream: String) {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(15))
         .build()
         .unwrap();
     loop {
-        let result=async {
-            let session:Value=client.post(format!("{}/plugins/hollow-relay/relays/sessions",upstream.trim_end_matches('/'))).json(&json!({"label":app.engine.lock().unwrap().label})).send().await.map_err(|e|e.to_string())?.error_for_status().map_err(|e|e.to_string())?.json().await.map_err(|e|e.to_string())?;
-            let advertised=session["relayWebSocketUrl"].as_str().ok_or("Missing registration websocket")?;
-            let websocket = argument("--upstream-ws").unwrap_or_else(||advertised.to_string());
-            let (mut socket,_)=tokio_tungstenite::connect_async(&websocket).await.map_err(|e|e.to_string())?;
-            let mut interval=tokio::time::interval(Duration::from_secs(20));let mut registered=false;
-            loop {tokio::select! {
-                _=interval.tick()=>{
-                    let status=app.status().await;
-                    let mut body=status.clone();body["sessionId"]=session["sessionId"].clone();body["sessionToken"]=session["sessionToken"].clone();
-                    body["relayPublicKey"]=Value::Null;
-                    let kind=if registered {"HOLLOW_WS_RELAY_HEARTBEAT"}else{"HOLLOW_WS_RELAY_REGISTER"};
-                    socket.send(tokio_tungstenite::tungstenite::Message::Text(json!([kind,body]).to_string().into())).await.map_err(|e|e.to_string())?;
-                },
-                message=socket.next()=>{
-                    let message=message.ok_or("Registration socket closed")?.map_err(|e|e.to_string())?;
-                    if message.is_close(){return Err("Registration socket closed".to_string())}
-                    if let Ok(text)=message.to_text() {if let Ok(frame)=serde_json::from_str::<Value>(text) {
-                        if frame[0]=="HOLLOW_WS_RELAY_REGISTER_ERROR" {return Err("Upstream rejected relay registration".into())}
-                        if frame[0]=="HOLLOW_WS_RELAY_REGISTERED" || frame[0]=="HOLLOW_WS_RELAY_REGISTER_OK" {registered=true;*app.registration.write().await=json!({"registered":true,"upstream":upstream});}
-                    }}
+        if !app.enabled.load(Ordering::SeqCst) || app.public.read().await["running"] != true {
+            app.hosting_changed.notified().await;
+            continue;
+        }
+        let mut registered_session = None;
+        let session_future = async {
+            let session: Value = client
+                .post(format!(
+                    "{}/plugins/hollow-relay/relays/sessions",
+                    upstream.trim_end_matches('/')
+                ))
+                .json(&json!({"label":app.engine.lock().unwrap().label}))
+                .send()
+                .await
+                .map_err(|e| e.to_string())?
+                .error_for_status()
+                .map_err(|e| e.to_string())?
+                .json()
+                .await
+                .map_err(|e| e.to_string())?;
+            registered_session = Some(session.clone());
+            let advertised = session["relayWebSocketUrl"]
+                .as_str()
+                .ok_or("Missing registration websocket")?;
+            let websocket = argument("--upstream-ws").unwrap_or_else(|| advertised.to_string());
+            let (mut socket, _) = tokio_tungstenite::connect_async(&websocket)
+                .await
+                .map_err(|e| e.to_string())?;
+            let mut interval = tokio::time::interval(Duration::from_secs(20));
+            let mut registered = false;
+            loop {
+                tokio::select! {
+                    _=interval.tick()=>{
+                        let status=app.status().await;
+                        let mut body=status.clone();body["sessionId"]=session["sessionId"].clone();body["sessionToken"]=session["sessionToken"].clone();
+                        body["relayPublicKey"]=Value::Null;
+                        let kind=if registered {"HOLLOW_WS_RELAY_HEARTBEAT"}else{"HOLLOW_WS_RELAY_REGISTER"};
+                        socket.send(tokio_tungstenite::tungstenite::Message::Text(json!([kind,body]).to_string().into())).await.map_err(|e|e.to_string())?;
+                    },
+                    message=socket.next()=>{
+                        let message=message.ok_or("Registration socket closed")?.map_err(|e|e.to_string())?;
+                        if message.is_close(){return Err("Registration socket closed".to_string())}
+                        if let Ok(text)=message.to_text() {if let Ok(frame)=serde_json::from_str::<Value>(text) {
+                            if frame[0]=="HOLLOW_WS_RELAY_REGISTER_ERROR" {return Err("Upstream rejected relay registration".into())}
+                            if frame[0]=="HOLLOW_WS_RELAY_REGISTERED" || frame[0]=="HOLLOW_WS_RELAY_REGISTER_OK" {registered=true;*app.registration.write().await=json!({"registered":true,"upstream":upstream});}
+                        }}
+                    }
                 }
-            }}
-            #[allow(unreachable_code)] Ok::<(),String>(())
-        }.await;
+            }
+            #[allow(unreachable_code)]
+            Ok::<(), String>(())
+        };
+        let result = tokio::select! {
+            result=session_future=>Some(result),
+            _=app.hosting_changed.notified()=>None,
+        };
+        *app.registration.write().await = json!({"registered":false});
+        // Closing the registration websocket alone retains a fresh catalog entry.
+        // Explicitly retire its authenticated session when pausing or resetting.
+        if let Some(session) = registered_session {
+            if let (Some(id), Some(token)) = (
+                session["sessionId"].as_str(),
+                session["sessionToken"].as_str(),
+            ) {
+                let _ = client
+                    .delete(format!(
+                        "{}/plugins/hollow-relay/relays/sessions/{id}",
+                        upstream.trim_end_matches('/')
+                    ))
+                    .header("x-hollow-relay-session-token", token)
+                    .timeout(Duration::from_secs(3))
+                    .send()
+                    .await;
+            }
+        }
+        let Some(result) = result else {
+            continue;
+        };
         *app.registration.write().await = json!({"registered":false,"error":result.err()});
-        tokio::time::sleep(Duration::from_secs(10)).await;
+        tokio::select! {_=tokio::time::sleep(Duration::from_secs(10))=>{},_=app.hosting_changed.notified()=>{}}
     }
 }
 
@@ -414,6 +645,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         started: now(),
         public: RwLock::new(Value::Null),
         registration: RwLock::new(json!({"registered":false})),
+        enabled: AtomicBool::new(!env::args().any(|a| a == "--start-paused")),
+        hosting_changed: Notify::new(),
         refresh: Notify::new(),
         shutdown: Notify::new(),
     });
@@ -447,11 +680,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
             tokio::spawn(tunnel(
                 app.clone(),
                 PathBuf::from(path),
-                argument("--upstream"),
                 cloudflared,
                 native_helper.is_some(),
             ))
         });
+    let registration =
+        argument("--upstream").map(|upstream| tokio::spawn(register(app.clone(), upstream)));
     if env::args().any(|a| a == "--exit-on-stdin-close") {
         let parent = app.clone();
         std::thread::Builder::new()
@@ -476,6 +710,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .route("/info", get(health))
         .route("/service", get(service))
         .route("/refresh", post(refresh))
+        .route("/enabled", post(set_enabled))
         .route("/shutdown", post(shutdown))
         .with_state(app.clone());
     axum::serve(listener, router)
@@ -485,6 +720,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         })
         .await?;
     if let Some(task) = supervisor {
+        task.abort();
+        let _ = task.await;
+    }
+    if let Some(task) = registration {
         task.abort();
         let _ = task.await;
     }

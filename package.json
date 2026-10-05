@@ -7,6 +7,7 @@
     "benchmark": "node scripts/benchmark.mjs",
     "test:job": "node scripts/job-lifetime.mjs",
     "test:tunnel": "node scripts/tunnel-smoke.mjs",
+    "test:lifecycle": "node scripts/lifecycle.mjs",
     "report": "node scripts/report.mjs"
   }
 }

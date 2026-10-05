@@ -3,3 +3,5 @@
 /.tmp/
 /results/raw/
 /.tmp-*.log
+
+/output/

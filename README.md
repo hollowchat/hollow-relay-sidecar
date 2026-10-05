@@ -4,8 +4,9 @@ A native Rust implementation of Hollow's signed WebSocket room relay. Node is
 not needed to run it. Node is used by the verification scripts to launch the
 existing `hollow-relay-plugin` implementation as the reference server.
 
-This repository is a standalone prototype, not yet included in Hollow Desktop's
-installer. It implements the room transport; it does not replace the complete
+This repository supplies the native relay process bundled by Hollow Desktop.
+It also provides standalone verification and benchmark scripts. It implements
+the room transport; it does not replace the complete
 CGP event/log server, IPFS, or an SFU media server. Both sides of the benchmark
 run the room relay with SFU token issuance disabled.
 
